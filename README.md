@@ -1,5 +1,6 @@
 # BottomBar
 BottomBar
+安卓底部导航栏封装类。
 是对原版xubinhong/BottomBar的改进版本，添加和修改了部分功能：
 1.去除其内部fragment管理功能，这个功能由外部其他工具接管；
 2.增加点击回调功能；
