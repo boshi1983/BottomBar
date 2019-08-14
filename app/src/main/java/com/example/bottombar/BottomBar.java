@@ -1,27 +1,27 @@
 package com.example.bottombar;
 
+
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
-import android.graphics.drawable.BitmapDrawable;
-import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v7.app.AppCompatActivity;
+import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
 
+import androidx.annotation.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 
+import cn.forward.androids.utils.Util;
 
 public class BottomBar extends View {
-
     private Context context;
 
     public BottomBar(Context context, @Nullable AttributeSet attrs) {
@@ -33,38 +33,26 @@ public class BottomBar extends View {
     //提供的api 并且根据api做一定的物理基础准备
     //////////////////////////////////////////////////
 
-    private int containerId;
-
-    private List<Class> fragmentClassList = new ArrayList<>();
-    private List<String> titleList = new ArrayList<>();
-    private List<Integer> iconResBeforeList = new ArrayList<>();
-    private List<Integer> iconResAfterList = new ArrayList<>();
-
-    private List<Fragment> fragmentList = new ArrayList<>();
+    private List<BarUnit> barList = new ArrayList<>();
 
     private int itemCount;
 
-    private Paint paint = new Paint();
-
-    private List<Bitmap> iconBitmapBeforeList = new ArrayList<>();
-    private List<Bitmap> iconBitmapAfterList = new ArrayList<>();
-    private List<Rect> iconRectList = new ArrayList<>();
+    private Paint mPaint = new Paint();
 
     private int currentCheckedIndex;
-    private int firstCheckedIndex;
 
     private int titleColorBefore = Color.parseColor("#999999");
     private int titleColorAfter = Color.parseColor("#ff5d5e");
+    private int numberBgColor = Color.parseColor("#FF5EA8");
+    private int numberTextColor = Color.parseColor("#ffffff");
 
-    private int titleSizeInDp = 10;
-    private int iconWidth = 20;
-    private int iconHeight = 20;
+    private int titleSize;
+    private int numberSize;
+    private int iconWidth = 30;
+    private int iconHeight = 30;
     private int titleIconMargin = 5;
-
-    public BottomBar setContainer(int containerId) {
-        this.containerId = containerId;
-        return this;
-    }
+    private int titleBaseLine;
+    private int parentItemWidth;
 
     public BottomBar setTitleBeforeAndAfterColor(String beforeResCode, String AfterResCode) {//支持"#333333"这种形式
         titleColorBefore = Color.parseColor(beforeResCode);
@@ -72,8 +60,13 @@ public class BottomBar extends View {
         return this;
     }
 
-    public BottomBar setTitleSize(int titleSizeInDp) {
-        this.titleSizeInDp = titleSizeInDp;
+    public BottomBar setTitleSize(int dp) {
+        this.titleSize = Util.dp2px(context, dp);
+        return this;
+    }
+
+    public BottomBar setNumberSize(int dp) {
+        this.numberSize = Util.dp2px(context, dp);
         return this;
     }
 
@@ -92,51 +85,32 @@ public class BottomBar extends View {
         return this;
     }
 
-    public BottomBar addItem(Class fragmentClass, String title, int iconResBefore, int iconResAfter) {
-        fragmentClassList.add(fragmentClass);
-        titleList.add(title);
-        iconResBeforeList.add(iconResBefore);
-        iconResAfterList.add(iconResAfter);
+    public BottomBar addItem(String title, int iconResBefore, int iconResAfter, Runnable runnable) {
+        barList.add(new BarUnit(title, iconResBefore, iconResAfter, runnable));
         return this;
     }
 
-    public BottomBar setFirstChecked(int firstCheckedIndex) {//从0开始
-        this.firstCheckedIndex = firstCheckedIndex;
-        return this;
+    public void setNumber(int index, int number)
+    {
+        BarUnit unit = barList.get(index);
+        if (null != unit) {
+            unit.setNumber(number);
+            invalidate();
+        }
     }
 
-    public void build() {
-        itemCount = fragmentClassList.size();
-        //预创建bitmap的Rect并缓存
-        //预创建icon的Rect并缓存
-        for (int i = 0; i < itemCount; i++) {
-            Bitmap beforeBitmap = getBitmap(iconResBeforeList.get(i));
-            iconBitmapBeforeList.add(beforeBitmap);
-
-            Bitmap afterBitmap = getBitmap(iconResAfterList.get(i));
-            iconBitmapAfterList.add(afterBitmap);
-
-            Rect rect = new Rect();
-            iconRectList.add(rect);
-
-            Class clx = fragmentClassList.get(i);
-            try {
-                Fragment fragment = (Fragment) clx.newInstance();
-                fragmentList.add(fragment);
-            } catch (InstantiationException | IllegalAccessException e) {
-                e.printStackTrace();
-            }
+    public void build(boolean bswitch, int currentindex) {
+        itemCount = barList.size();
+        for (BarUnit unit: barList) {
+            unit.build();
         }
 
-        currentCheckedIndex = firstCheckedIndex;
-        switchFragment(currentCheckedIndex);
+        currentCheckedIndex = currentindex;
+        if (bswitch) {
+            switchFragment(currentCheckedIndex);
+        }
 
         invalidate();
-    }
-
-    private Bitmap getBitmap(int resId) {
-        BitmapDrawable bitmapDrawable = (BitmapDrawable) context.getResources().getDrawable(resId);
-        return bitmapDrawable.getBitmap();
     }
 
     //////////////////////////////////////////////////
@@ -149,11 +123,6 @@ public class BottomBar extends View {
         initParam();
     }
 
-    private int titleBaseLine;
-    private List<Integer> titleXList = new ArrayList<>();
-
-    private int parentItemWidth;
-
     private void initParam() {
         if (itemCount != 0) {
             //单个item宽高
@@ -161,17 +130,19 @@ public class BottomBar extends View {
             int parentItemHeight = getHeight();
 
             //图标边长
-            int iconWidth = dp2px(this.iconWidth);//先指定20dp
-            int iconHeight = dp2px(this.iconHeight);
+            int iconWidth = Util.dp2px(context, this.iconWidth);//先指定20dp
+            int iconHeight = Util.dp2px(context, this.iconHeight);
 
             //图标文字margin
-            int textIconMargin = dp2px(((float)titleIconMargin)/2);//先指定5dp，这里除以一半才是正常的margin，不知道为啥，可能是图片的原因
+            int textIconMargin = Util.dp2px(context, ((float)titleIconMargin)/2);//先指定5dp，这里除以一半才是正常的margin，不知道为啥，可能是图片的原因
 
             //标题高度
-            int titleSize = dp2px(titleSizeInDp);//这里先指定10dp
-            paint.setTextSize(titleSize);
+            mPaint.setTextSize(titleSize);
             Rect rect = new Rect();
-            paint.getTextBounds(titleList.get(0), 0, titleList.get(0).length(), rect);
+
+            BarUnit unit = barList.get(0);
+
+            mPaint.getTextBounds(unit.getTitle(), 0, unit.getTitle().length(), rect);
             int titleHeight = rect.height();
 
             //从而计算得出图标的起始top坐标、文本的baseLine
@@ -181,28 +152,25 @@ public class BottomBar extends View {
             //对icon的rect的参数进行赋值
             int firstRectX = (parentItemWidth - iconWidth) / 2;//第一个icon的左
             for (int i = 0; i < itemCount; i++) {
+                unit = barList.get(i);
+
                 int rectX = i * parentItemWidth + firstRectX;
 
-                Rect temp = iconRectList.get(i);
+                Rect temp = unit.getRect();
 
                 temp.left = rectX;
                 temp.top = iconTop ;
                 temp.right = rectX + iconWidth;
                 temp.bottom = iconTop + iconHeight;
-            }
 
-            //标题（单位是个问题）
-            for (int i = 0; i < itemCount; i ++) {
-                String title = titleList.get(i);
-                paint.getTextBounds(title, 0, title.length(), rect);
-                titleXList.add((parentItemWidth - rect.width()) / 2 + parentItemWidth * i);
+                String title = unit.getTitle();
+                mPaint.getTextBounds(title, 0, title.length(), rect);
+                unit.setTitleX((parentItemWidth - rect.width()) / 2 + parentItemWidth * i);
+
+                mPaint.setTextSize(numberSize);
+                unit.setNumberRect(mPaint,3f*iconWidth/4f);
             }
         }
-    }
-
-    private int dp2px(float dpValue) {
-        float scale = context.getResources().getDisplayMetrics().density;
-        return (int) (dpValue * scale + 0.5f);
     }
 
     //////////////////////////////////////////////////
@@ -214,30 +182,52 @@ public class BottomBar extends View {
         super.onDraw(canvas);//这里让view自身替我们画背景 如果指定的话
 
         if (itemCount != 0) {
-            //画背景
-            paint.setAntiAlias(false);
+            //画背景 和 角标
+
+            mPaint.setAntiAlias(false);
             for (int i = 0; i < itemCount; i++) {
-                Bitmap bitmap = null;
+                BarUnit unit = barList.get(i);
+                Bitmap bitmap;
                 if (i == currentCheckedIndex) {
-                    bitmap = iconBitmapAfterList.get(i);
+                    bitmap = unit.getAfterBitmap();
                 } else {
-                    bitmap = iconBitmapBeforeList.get(i);
+                    bitmap = unit.getBeforeBitmap();
                 }
-                Rect rect = iconRectList.get(i);
-                canvas.drawBitmap(bitmap, null, rect, paint);//null代表bitmap全部画出
+                if (bitmap != null) {
+                    Rect rect = unit.getRect();
+                    canvas.drawBitmap(bitmap, null, rect, mPaint); //null代表bitmap全部画出
+                }
+
+                if (unit.getNumber() > 0) {
+                    int radius = Util.dp2px(context, 10);
+                    Rect rect = unit.getNumberBgRect();
+                    RectF rectF = new RectF(rect.left, rect.top, rect.right, rect.bottom);
+
+                    mPaint.setColor(numberBgColor);
+                    mPaint.setTextSize(numberSize);
+                    canvas.drawRoundRect(rectF, radius, radius, mPaint);
+                }
             }
 
             //画文字
-            paint.setAntiAlias(true);
+            mPaint.setAntiAlias(true);
             for (int i = 0; i < itemCount; i ++) {
-                String title = titleList.get(i);
+                BarUnit unit = barList.get(i);
+                String title = unit.getTitle();
                 if (i == currentCheckedIndex) {
-                    paint.setColor(titleColorAfter);
+                    mPaint.setColor(titleColorAfter);
                 } else {
-                    paint.setColor(titleColorBefore);
+                    mPaint.setColor(titleColorBefore);
                 }
-                int x = titleXList.get(i);
-                canvas.drawText(title, x, titleBaseLine, paint);
+                mPaint.setTextSize(titleSize);
+                canvas.drawText(title, unit.getTitleX(), titleBaseLine, mPaint);
+
+                if (unit.getNumber() > 0) {
+                    mPaint.setTextSize(numberSize);
+                    mPaint.setColor(numberTextColor);
+                    Rect rect = unit.getNumberTextRect();
+                    canvas.drawText("" + unit.getNumber(), rect.left, rect.top, mPaint);
+                }
             }
         }
     }
@@ -281,33 +271,154 @@ public class BottomBar extends View {
 
     private int withinWhichArea(int x) { return x/parentItemWidth; }//从0开始
 
-    //////////////////////////////////////////////////
-    //碎片处理代码
-    //////////////////////////////////////////////////
-    private Fragment currentFragment;
-
     //注意 这里是只支持AppCompatActivity 需要支持其他老版的 自行修改
     protected void switchFragment(int whichFragment) {
-        Fragment fragment = fragmentList.get(whichFragment);
-        int frameLayoutId = containerId;
+        BarUnit unit = barList.get(whichFragment);
+        if (unit != null) {
+            unit.run();
+        }
+    }
 
-        if (fragment != null) {
-            FragmentTransaction transaction = ((AppCompatActivity)context).getSupportFragmentManager().beginTransaction();
-            if (fragment.isAdded()) {
-                if (currentFragment != null) {
-                    transaction.hide(currentFragment).show(fragment);
-                } else {
-                    transaction.show(fragment);
-                }
-            } else {
-                if (currentFragment != null) {
-                    transaction.hide(currentFragment).add(frameLayoutId, fragment);
-                } else {
-                    transaction.add(frameLayoutId, fragment);
-                }
+    private class BarUnit {
+        private String title;
+        private int titleX;
+        private int iconResBefore;
+        private int iconResAfter;
+        private Runnable runnable;
+        private int number = 0;
+        private Rect numberBgRect = new Rect();
+        private Rect numberTextRect = new Rect();
+
+        Bitmap beforeBitmap;
+        Bitmap afterBitmap;
+        Rect rect;
+
+        public BarUnit(String title, int iconResBefore, int iconResAfter, Runnable runnable) {
+            this.title = title;
+            this.iconResBefore = iconResBefore;
+            this.iconResAfter = iconResAfter;
+            this.runnable = runnable;
+        }
+
+        private Bitmap getBitmap(int resId) {
+            if (resId != 0) {
+                return BitmapFactory.decodeResource(getResources(), resId);
             }
-            currentFragment = fragment;
-            transaction.commit();
+            return null;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public BarUnit setTitle(String title) {
+            this.title = title;
+            return this;
+        }
+
+        public int getTitleX() {
+            return titleX;
+        }
+
+        public BarUnit setTitleX(int titleX) {
+            this.titleX = titleX;
+            return this;
+        }
+
+        public int getIconResBefore() {
+            return iconResBefore;
+        }
+
+        public BarUnit setIconResBefore(int iconResBefore) {
+            this.iconResBefore = iconResBefore;
+            return this;
+        }
+
+        public int getIconResAfter() {
+            return iconResAfter;
+        }
+
+        public BarUnit setIconResAfter(int iconResAfter) {
+            this.iconResAfter = iconResAfter;
+            return this;
+        }
+
+        public Runnable getRunnable() {
+            return runnable;
+        }
+
+        public BarUnit setRunnable(Runnable runnable) {
+            this.runnable = runnable;
+            return this;
+        }
+
+        public Rect getRect() {
+            return rect;
+        }
+
+        public BarUnit setRect(Rect rect) {
+            this.rect = rect;
+            return this;
+        }
+
+        Bitmap getBeforeBitmap() {
+            return beforeBitmap;
+        }
+
+        Bitmap getAfterBitmap() {
+            return afterBitmap;
+        }
+
+        public int getNumber() {
+            return number;
+        }
+
+        public BarUnit setNumber(int number) {
+            this.number = number;
+            return this;
+        }
+
+        public void setNumberRect(Paint paint, float offsetX)
+        {
+            if (this.number <= 0) {
+                return;
+            }
+
+            int padding = Util.dp2px(context, 5);
+
+            Rect rect = new Rect();
+            paint.getTextBounds("" + this.number, 0, ("" + this.number).length(), rect);
+            numberBgRect.set(0, 0, rect.width() + padding * 2, rect.height() + padding * 2);
+
+            offsetX += (this.rect.left - numberBgRect.width()/2f);
+
+            numberBgRect.offset((int)(offsetX), 0);
+
+            Paint.FontMetrics metrics = paint.getFontMetrics();
+            //numberTextRect.set(numberBgRect.left + padding, (int)(numberBgRect.top - metrics.top), numberBgRect.right, numberBgRect.bottom);
+            numberTextRect.set((int)(offsetX + padding), numberBgRect.height() - padding, numberBgRect.right, numberBgRect.bottom);
+        }
+
+        public Rect getNumberBgRect() {
+            return numberBgRect;
+        }
+
+        public Rect getNumberTextRect() {
+            return numberTextRect;
+        }
+
+        public void build()
+        {
+            beforeBitmap = getBitmap(iconResBefore);
+            afterBitmap = getBitmap(iconResAfter);
+            rect = new Rect();
+        }
+
+        public void run()
+        {
+            if (runnable != null) {
+                runnable.run();
+            }
         }
     }
 }
