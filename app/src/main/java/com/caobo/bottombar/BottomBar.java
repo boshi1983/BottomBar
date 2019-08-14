@@ -57,43 +57,63 @@ public class BottomBar extends View {
     private int titleIconMargin = 5;
     private int titleBaseLine;
     private int parentItemWidth;
+    private int target = -1;
 
+    //设置按钮标题点击前后的颜色
     public BottomBar setTitleBeforeAndAfterColor(String beforeResCode, String afterResCode) {//支持"#333333"这种形式
         titleColorBefore = Color.parseColor(beforeResCode);
         titleColorAfter = Color.parseColor(afterResCode);
         return this;
     }
 
+    //设置标题字号
     public BottomBar setTitleSize(int dp) {
         this.titleSize = dp2px(context, dp);
         return this;
     }
 
+    //设置角标字号
     public BottomBar setNumberSize(int dp) {
         this.numberSize = dp2px(context, dp);
         return this;
     }
 
+    //设置icon宽度
     public BottomBar setIconWidth(int iconWidth) {
         this.iconWidth = iconWidth;
         return this;
     }
 
+    //设置icon Margin
     public BottomBar setTitleIconMargin(int titleIconMargin) {
         this.titleIconMargin = titleIconMargin;
         return this;
     }
 
+    //设置icon 高度
     public BottomBar setIconHeight(int iconHeight) {
         this.iconHeight = iconHeight;
         return this;
     }
 
+    /**
+     * 添加按钮
+     * @param title 标题
+     * @param iconResBefore icon默认状态
+     * @param iconResAfter icon选中状态
+     * @param runnable 点击回调函数
+     * @return
+     */
     public BottomBar addItem(String title, int iconResBefore, int iconResAfter, Runnable runnable) {
         barList.add(new BarUnit(title, iconResBefore, iconResAfter, runnable));
         return this;
     }
 
+    /**
+     * 设置角标数字
+     * @param index 按钮下标，按照实际addtime顺序
+     * @param number
+     */
     public void setNumber(int index, int number)
     {
         BarUnit unit = barList.get(index);
@@ -103,6 +123,11 @@ public class BottomBar extends View {
         }
     }
 
+    /**
+     * 创建导航栏
+     * @param bswitch 是否回调函数
+     * @param currentindex 默认选中按钮下标
+     */
     public void build(boolean bswitch, int currentindex) {
         itemCount = barList.size();
         for (BarUnit unit: barList) {
@@ -117,16 +142,30 @@ public class BottomBar extends View {
         invalidate();
     }
 
+    /**
+     * 指定选中按钮
+     * @param currentindex
+     */
+    public void setCurrent(int currentindex)
+    {
+        currentCheckedIndex = currentindex;
+        switchFragment(currentCheckedIndex);
+
+        invalidate();
+    }
+
     //////////////////////////////////////////////////
     //初始化数据基础
     //////////////////////////////////////////////////
-
     @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         super.onLayout(changed, left, top, right, bottom);
         initParam();
     }
 
+    /**
+     * 初始化按钮布局
+     */
     private void initParam() {
         if (itemCount != 0) {
             //单个item宽高
@@ -172,7 +211,7 @@ public class BottomBar extends View {
                 unit.setTitleX((parentItemWidth - rect.width()) / 2 + parentItemWidth * i);
 
                 mPaint.setTextSize(numberSize);
-                unit.setNumberRect(mPaint,3f*iconWidth/4f);
+                unit.setNumberRect(3f*iconWidth/4f);
             }
         }
     }
@@ -180,7 +219,6 @@ public class BottomBar extends View {
     //////////////////////////////////////////////////
     //根据得到的参数绘制
     //////////////////////////////////////////////////
-
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);//这里让view自身替我们画背景 如果指定的话
@@ -202,6 +240,7 @@ public class BottomBar extends View {
                     canvas.drawBitmap(bitmap, null, rect, mPaint); //null代表bitmap全部画出
                 }
 
+                //画角标背景
                 if (unit.getNumber() > 0) {
                     int radius = dp2px(context, 10);
                     Rect rect = unit.getNumberBgRect();
@@ -226,6 +265,7 @@ public class BottomBar extends View {
                 mPaint.setTextSize(titleSize);
                 canvas.drawText(title, unit.getTitleX(), titleBaseLine, mPaint);
 
+                //画角标文字
                 if (unit.getNumber() > 0) {
                     mPaint.setTextSize(numberSize);
                     mPaint.setColor(numberTextColor);
@@ -239,9 +279,6 @@ public class BottomBar extends View {
     //////////////////////////////////////////////////
     //点击事件:我观察了微博和掌盟，发现down和up都在该区域内才响应
     //////////////////////////////////////////////////
-
-    int target = -1;
-
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public boolean onTouchEvent(MotionEvent event) {
@@ -283,6 +320,9 @@ public class BottomBar extends View {
         }
     }
 
+    /**
+     * 按钮数据类
+     */
     private class BarUnit {
         private String title;
         private int titleX;
@@ -292,10 +332,11 @@ public class BottomBar extends View {
         private int number = 0;
         private Rect numberBgRect = new Rect();
         private Rect numberTextRect = new Rect();
+        private float offsetX;
 
         Bitmap beforeBitmap;
         Bitmap afterBitmap;
-        Rect rect;
+        Rect rect = new Rect();
 
         public BarUnit(String title, int iconResBefore, int iconResAfter, Runnable runnable) {
             this.title = title;
@@ -311,7 +352,7 @@ public class BottomBar extends View {
             return null;
         }
 
-        public String getTitle() {
+        String getTitle() {
             return title;
         }
 
@@ -379,11 +420,17 @@ public class BottomBar extends View {
 
         public BarUnit setNumber(int number) {
             this.number = number;
+            setNumberRect(this.offsetX);
             return this;
         }
 
-        public void setNumberRect(Paint paint, float offsetX)
+        /**
+         * 设置角标背景数据
+         * @param offsetX
+         */
+        public void setNumberRect(float offsetX)
         {
+            this.offsetX = offsetX;
             if (this.number <= 0) {
                 return;
             }
@@ -391,14 +438,14 @@ public class BottomBar extends View {
             int padding = dp2px(context, 5);
 
             Rect rect = new Rect();
-            paint.getTextBounds("" + this.number, 0, ("" + this.number).length(), rect);
+            mPaint.getTextBounds("" + this.number, 0, ("" + this.number).length(), rect);
             numberBgRect.set(0, 0, rect.width() + padding * 2, rect.height() + padding * 2);
 
             offsetX += (this.rect.left - numberBgRect.width()/2f);
 
             numberBgRect.offset((int)(offsetX), 0);
 
-            Paint.FontMetrics metrics = paint.getFontMetrics();
+            Paint.FontMetrics metrics = mPaint.getFontMetrics();
             //numberTextRect.set(numberBgRect.left + padding, (int)(numberBgRect.top - metrics.top), numberBgRect.right, numberBgRect.bottom);
             numberTextRect.set((int)(offsetX + padding), numberBgRect.height() - padding, numberBgRect.right, numberBgRect.bottom);
         }
@@ -411,11 +458,13 @@ public class BottomBar extends View {
             return numberTextRect;
         }
 
+        /**
+         * 生成icon资源
+         */
         public void build()
         {
             beforeBitmap = getBitmap(iconResBefore);
             afterBitmap = getBitmap(iconResAfter);
-            rect = new Rect();
         }
 
         public void run()
