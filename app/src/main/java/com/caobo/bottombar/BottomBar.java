@@ -1,6 +1,5 @@
 package com.caobo.bottombar;
 
-
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -18,6 +17,9 @@ import android.view.View;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ *
+ */
 public class BottomBar extends View {
 
     public static int dp2px(Context context, float dp) {
@@ -56,9 +58,9 @@ public class BottomBar extends View {
     private int titleBaseLine;
     private int parentItemWidth;
 
-    public BottomBar setTitleBeforeAndAfterColor(String beforeResCode, String AfterResCode) {//支持"#333333"这种形式
+    public BottomBar setTitleBeforeAndAfterColor(String beforeResCode, String afterResCode) {//支持"#333333"这种形式
         titleColorBefore = Color.parseColor(beforeResCode);
-        titleColorAfter = Color.parseColor(AfterResCode);
+        titleColorAfter = Color.parseColor(afterResCode);
         return this;
     }
 
