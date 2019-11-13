@@ -116,9 +116,23 @@ public class BottomBar extends View {
      */
     public void setNumber(int index, int number)
     {
-        BarUnit unit = barList.get(index);
+        BarUnit unit = getUnit(index);
         if (null != unit) {
             unit.setNumber(number);
+            invalidate();
+        }
+    }
+
+    /**
+     * 动态设置按钮标题
+     * @param index
+     * @param title
+     */
+    public void setTitle(int index, String title)
+    {
+        BarUnit unit = getUnit(index);
+        if (null != unit) {
+            unit.setTitle(title);
             invalidate();
         }
     }
@@ -157,6 +171,15 @@ public class BottomBar extends View {
     //////////////////////////////////////////////////
     //初始化数据基础
     //////////////////////////////////////////////////
+    private BarUnit getUnit(int index)
+    {
+        if (index >= 0 && index < barList.size()) {
+            return barList.get(index);
+        }
+
+        return null;
+    }
+
     @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         super.onLayout(changed, left, top, right, bottom);
@@ -167,7 +190,7 @@ public class BottomBar extends View {
      * 初始化按钮布局
      */
     private void initParam() {
-        if (itemCount != 0) {
+        if (itemCount > 0) {
             //单个item宽高
             parentItemWidth = getWidth() / itemCount;
             int parentItemHeight = getHeight();
@@ -183,7 +206,7 @@ public class BottomBar extends View {
             mPaint.setTextSize(titleSize);
             Rect rect = new Rect();
 
-            BarUnit unit = barList.get(0);
+            BarUnit unit = getUnit(0);
 
             mPaint.getTextBounds(unit.getTitle(), 0, unit.getTitle().length(), rect);
             int titleHeight = rect.height();
@@ -195,7 +218,7 @@ public class BottomBar extends View {
             //对icon的rect的参数进行赋值
             int firstRectX = (parentItemWidth - iconWidth) / 2;//第一个icon的左
             for (int i = 0; i < itemCount; i++) {
-                unit = barList.get(i);
+                unit = getUnit(i);
 
                 int rectX = i * parentItemWidth + firstRectX;
 
@@ -223,12 +246,12 @@ public class BottomBar extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);//这里让view自身替我们画背景 如果指定的话
 
-        if (itemCount != 0) {
+        if (itemCount > 0) {
             //画背景 和 角标
 
             mPaint.setAntiAlias(false);
             for (int i = 0; i < itemCount; i++) {
-                BarUnit unit = barList.get(i);
+                BarUnit unit = getUnit(i);
                 Bitmap bitmap;
                 if (i == currentCheckedIndex) {
                     bitmap = unit.getAfterBitmap();
@@ -255,7 +278,7 @@ public class BottomBar extends View {
             //画文字
             mPaint.setAntiAlias(true);
             for (int i = 0; i < itemCount; i ++) {
-                BarUnit unit = barList.get(i);
+                BarUnit unit = getUnit(i);
                 String title = unit.getTitle();
                 if (i == currentCheckedIndex) {
                     mPaint.setColor(titleColorAfter);
@@ -314,7 +337,7 @@ public class BottomBar extends View {
 
     //注意 这里是只支持AppCompatActivity 需要支持其他老版的 自行修改
     protected void switchFragment(int whichFragment) {
-        BarUnit unit = barList.get(whichFragment);
+        BarUnit unit = getUnit(whichFragment);
         if (unit != null) {
             unit.run();
         }
